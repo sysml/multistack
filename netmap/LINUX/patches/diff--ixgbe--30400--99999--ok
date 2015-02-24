@@ -1,0 +1,91 @@
+--- /home/luigi/ksrc/linux-3.5/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c	2012-07-21 22:58:29.000000000 +0200
++++ net/ixgbe/ixgbe_main.c	2012-08-13 08:47:41.000000000 +0200
+@@ -204,6 +204,22 @@ static const struct ixgbe_reg_info ixgbe
+	{}
+ };
+
++#if defined(CONFIG_NETMAP) || defined(CONFIG_NETMAP_MODULE)
++/*
++ * The #ifdef DEV_NETMAP / #endif blocks in this file are meant to
++ * be a reference on how to implement netmap support in a driver.
++ * Additional comments are in ixgbe_netmap_linux.h .
++ *
++ * The code is originally developed on FreeBSD and in the interest
++ * of maintainability we try to limit differences between the two systems.
++ *
++ * <ixgbe_netmap_linux.h> contains functions for netmap support
++ * that extend the standard driver.
++ * It also defines DEV_NETMAP so further conditional sections use
++ * that instead of CONFIG_NETMAP
++ */
++#include <ixgbe_netmap_linux.h>
++#endif
+
+ /*
+  * ixgbe_regdump - register printout routine
+@@ -764,6 +780,17 @@ static bool ixgbe_clean_tx_irq(struct ix
+	if (test_bit(__IXGBE_DOWN, &adapter->state))
+		return true;
+
++#ifdef DEV_NETMAP
++	/*
++	 * In netmap mode, all the work is done in the context
++	 * of the client thread. Interrupt handlers only wake up
++	 * clients, which may be sleeping on individual rings
++	 * or on a global resource for all rings.
++	 */
++	if (netmap_tx_irq(adapter->netdev, tx_ring->queue_index))
++		return 1; /* seems to be ignored */
++#endif /* DEV_NETMAP */
++
+	tx_buffer = &tx_ring->tx_buffer_info[i];
+	tx_desc = IXGBE_TX_DESC(tx_ring, i);
+	i -= tx_ring->count;
+@@ -1665,6 +1692,15 @@ static bool ixgbe_clean_rx_irq(struct ix
+ #endif /* IXGBE_FCOE */
+	u16 cleaned_count = ixgbe_desc_unused(rx_ring);
+
++#ifdef DEV_NETMAP
++	/*
++	 *	 Same as the txeof routine: only wakeup clients on intr.
++	 */
++	int dummy;
++	if (netmap_rx_irq(rx_ring->netdev, rx_ring->queue_index, &dummy))
++		return true; /* no more interrupts */
++#endif /* DEV_NETMAP */
++
+	do {
+		struct ixgbe_rx_buffer *rx_buffer;
+		union ixgbe_adv_rx_desc *rx_desc;
+@@ -2725,6 +2761,9 @@ void ixgbe_configure_tx_ring(struct ixgb
+	} while (--wait_loop && !(txdctl & IXGBE_TXDCTL_ENABLE));
+	if (!wait_loop)
+		e_err(drv, "Could not enable Tx Queue %d\n", reg_idx);
++#ifdef DEV_NETMAP
++	ixgbe_netmap_configure_tx_ring(adapter, reg_idx);
++#endif /* DEV_NETMAP */
+ }
+
+ static void ixgbe_setup_mtqc(struct ixgbe_adapter *adapter)
+@@ -3102,6 +3141,10 @@ void ixgbe_configure_rx_ring(struct ixgb
+	IXGBE_WRITE_REG(hw, IXGBE_RXDCTL(reg_idx), rxdctl);
+
+	ixgbe_rx_desc_queue_enable(adapter, ring);
++#ifdef DEV_NETMAP
++	if (ixgbe_netmap_configure_rx_ring(adapter, reg_idx))
++		return;
++#endif /* DEV_NETMAP */
+	ixgbe_alloc_rx_buffers(ring, ixgbe_desc_unused(ring));
+ }
+
+@@ -4827,6 +4870,10 @@ static int ixgbe_open(struct net_device
+
+	ixgbe_up_complete(adapter);
+
++#ifdef DEV_NETMAP
++	ixgbe_netmap_attach(adapter);
++#endif /* DEV_NETMAP */
++
+	return 0;
+
+ err_req_irq:

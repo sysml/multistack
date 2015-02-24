@@ -1,0 +1,38 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+</div>
+
+
+		images/micchie_addr.jpg" alt="email"></dd>
+		<dt>Postal Address:</dd>
+		<dd>Tokuda Lab. Delta S213 Keio University 5322 Endo Fujisawa Kanagawa 252-0882 JAPAN</dd>
+	</dl>
+</div>
+
+
+<P style="text-align: right; margin-top: 24px; width: 720px ; white-space: nowrap">
+
+<a href="http://www.jp.netbsd.org/ja/">
+<img style="border:0; width:88px; height: 38px; margin-right: 7px"
+	src="./images/poweredby.png"
+	alt="Site driven by NetBSD">
+</a>
+
+<a href="http://validator.w3.org/check/referer">
+<img style="border:0 ; width: 88px ; height: 31px"
+	src="http://www.w3.org/Icons/valid-html401"
+	alt="Valid HTML 4.01!"></a>
+
+<a href="http://jigsaw.w3.org/css-validator/">
+<img style="border:0; width:88px; height:31px"
+	src="http://jigsaw.w3.org/css-validator/images/vcss"
+	alt="Valid CSS!">
+</a>
+		</P>
+
+<div class="bottom" style="margin-top: 10px">
+	Keio Univ. <br>
+	Copyright(C) 2003-2009 Michio Honda All rights reserved.
+	</div>
+
+</body>
+</html>

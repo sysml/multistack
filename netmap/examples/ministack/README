@@ -1,0 +1,67 @@
+Examples to use MiniStack and its API.
+
+pkt-gen-prot.c is an extended version of pkt-gen.c.
+Underlying libraries are tcplib.h, tcplib.c and tcpsrlib.c
+
+It supports transmitting packets with:
+	An Ethernet header for a datalink protocol,
+	An IPv4 or IPv6 header for a network protocol, and
+	A UDP or TCP header for a transport protocol.
+
+It also supports various methods to send packets:
+	1. Copy a single pre-composed packet (i.e., protocol headers are
+	   already completed) from a single packet buffer to netmap slots,
+	   and push packets out when they are full. (SP in the paper)
+	2. Similar to 1, but pre-compose multiple packets on multiple buffers.
+	   (BP in the paper)
+	3. Compose a single packet on a single packet buffer.  Payload is
+	   copied from somewhere else.  Then it copies this packet to a netmap
+	   slot.  It repeats this until netmap slots become full.  Then it
+	   pushes out packets. (SC in the paper)
+	4. Similar to 3, but compose a multiple packets before copying packets
+	   to netmap slots. (BC in the paper)
+	5. Similar to 3, but directly compose packets in netmap slots.
+	   (SCZ in the paper)
+
+Usage:
+	In addition to command-line arguments of pkt-gen.c, we provide
+	following arguments:
+	-u : indicator of MiniStack usage
+	-h [ifname] : name of the NIC (e.g., em0)
+	-H [numrings] : the number of rings of a VALE port
+	-s [src address] : source IPv4 or IPv6 address in printable format
+	-d [dst address] : destination IPv4 or IPv6 address in printable format
+	-6 : If IPv6 is used, must be given
+	-Y [src port] : source port number
+	-y [dst port] : destination port number
+	-x [protocol] : provide tcp or udp
+	-M [method number] : 0 for SC, 1 for SP, 2 for BP and 3 for BC
+	-z : if it is given with -M 0, it performs SCZ method.
+	-E : if given, skip TCP checksum calculation
+
+	Example to send: ./pkt-gen-prot -i vale-t -h em0 -H 8 -X -s 10.0.0.2 -d 10.0.0.3 -x tcp -Y 10511 -y 10510 -t 10111222 -o -M 1 -l 64 -w 4
+
+	Example to receive: ./pkt-gen-prot -i vale-r -h em0 -H 8 -X -s 10.0.0.2 -x tcp -Y 10510 -o -w 4
+
+
+MiniStack API
+
+	MiniStack API registers a local-namespace identifier (IP address,
+	protocol and port) to an existing VALE port. Optionally, a remote
+	identifier can also be configured.
+	Then, it instructs this VALE port to relay packets that matches this
+	identifier between the NIC. struct nmaddrreq is passed via two ioctl
+	parameters: NIOCSMSOPEN and NIOCSMSCLOSE.  The former is to register,
+	the latter is to unregister.
+
+	struct nmaddrreq {
+		char  nar_ifname[IFNAMSIZ]; /* name the VALE port (e.g., vale0:t) */
+		char nar_hwifname[IFNAMSIZ]; /* name of the NIC (e.g., em0) */
+		union netmap_addr nar_laddr; /* local IPv4 or IPv6 address */
+		union netap_addr nar_raddr; /* remote IPv4 or IPv6 address */
+		uint8_t nar_protocol; /* protocol number (6 if TCP) */
+		uint8_t nar_flags; /* 0x03 must be given if it covers destination identifier */
+	};
+
+Contact:
+	Michio Honda (michio.honda@neclab.eu)

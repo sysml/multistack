@@ -1,0 +1,74 @@
+--- net/forcedeth.c	2011-08-05 06:59:21.000000000 +0200
++++ net/forcedeth.c	2012-02-17 11:16:41.404764449 +0100
+@@ -1865,12 +1865,25 @@ static void nv_init_tx(struct net_device
+	}
+ }
+
++#if defined(CONFIG_NETMAP) || defined(CONFIG_NETMAP_MODULE)
++/* we need a few forward declarations */
++static void nv_drain_rxtx(struct net_device *dev);
++static int nv_init_ring(struct net_device *dev);
++#include <forcedeth_netmap.h>
++#endif
++
+ static int nv_init_ring(struct net_device *dev)
+ {
+	struct fe_priv *np = netdev_priv(dev);
+
+	nv_init_tx(dev);
+	nv_init_rx(dev);
++#ifdef DEV_NETMAP
++	forcedeth_netmap_tx_init(np);
++	if (forcedeth_netmap_rx_init(np))
++		return 0; /* success */
++#endif /* DEV_NETMAP */
++
+
+	if (!nv_optimized(np))
+		return nv_alloc_rx(dev);
+@@ -3386,6 +3399,11 @@ static irqreturn_t nv_nic_irq_tx(int foo
+	int i;
+	unsigned long flags;
+
++#ifdef DEV_NETMAP
++	if (netmap_tx_irq(dev, 0))
++		return IRQ_HANDLED;
++#endif /* DEV_NETMAP */
++
+	for (i = 0;; i++) {
+		events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQ_TX_ALL;
+		writel(NVREG_IRQ_TX_ALL, base + NvRegMSIXIrqStatus);
+@@ -3497,6 +3515,11 @@ static irqreturn_t nv_nic_irq_rx(int foo
+	int i;
+	unsigned long flags;
+
++#ifdef DEV_NETMAP
++	if (netmap_rx_irq(dev, 0, &i))
++		return IRQ_HANDLED;
++#endif /* DEV_NETMAP */
++
+	for (i = 0;; i++) {
+		events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQ_RX_ALL;
+		writel(NVREG_IRQ_RX_ALL, base + NvRegMSIXIrqStatus);
+@@ -5615,6 +5638,10 @@ static int __devinit nv_probe(struct pci
+		goto out_error;
+	}
+
++#ifdef DEV_NETMAP
++	forcedeth_netmap_attach(np);
++#endif /* DEV_NETMAP */
++
+	netif_carrier_off(dev);
+
+	dev_info(&pci_dev->dev, "ifname %s, PHY OUI 0x%x @ %d, addr %pM\n",
+@@ -5698,6 +5725,10 @@ static void __devexit nv_remove(struct p
+
+	unregister_netdev(dev);
+
++#ifdef DEV_NETMAP
++	netmap_detach(dev);
++#endif /* DEV_NETMAP */
++
+	nv_restore_mac_addr(pci_dev);
+
+	/* restore any phy related changes */
