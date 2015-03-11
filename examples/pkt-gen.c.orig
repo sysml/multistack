@@ -111,8 +111,6 @@ const char *default_payload="netmap pkt-gen DIRECT payload\n"
 const char *indirect_payload="netmap pkt-gen indirect payload\n"
 	"http://info.iet.unipi.it/~luigi/netmap/ ";
 
-int time_second;	// support for RD() debugging macro
-
 int verbose = 0;
 
 #define SKIP_PAYLOAD 1 /* do not check payload. XXX unused */
@@ -170,6 +168,8 @@ struct glob_arg {
 #define OPT_TS		16	/* add a timestamp */
 #define OPT_INDIRECT	32	/* use indirect buffers, tx only */
 #define OPT_DUMP	64	/* dump rx/tx traffic */
+#define OPT_MONITOR_TX  128
+#define OPT_MONITOR_RX  256
 	int dev_type;
 #ifndef NO_PCAP
 	pcap_t *p;
@@ -980,7 +980,7 @@ sender_body(void *data)
 {
 	struct targ *targ = (struct targ *) data;
 	struct pollfd pfd = { .fd = targ->fd, .events = POLLOUT };
-	struct netmap_if *nifp = targ->nmd->nifp;
+	struct netmap_if *nifp;
 	struct netmap_ring *txring;
 	int i, n = targ->g->npackets / targ->g->nthreads;
 	int64_t sent = 0;
@@ -1007,7 +1007,7 @@ sender_body(void *data)
 		wait_time(targ->tic);
 		nexttime = targ->tic;
 	}
-    if (targ->g->dev_type == DEV_TAP) {
+        if (targ->g->dev_type == DEV_TAP) {
 	    D("writing to file desc %d", targ->g->main_fd);
 
 	    for (i = 0; !targ->cancel && (n == 0 || sent < n); i++) {
@@ -1037,6 +1037,7 @@ sender_body(void *data)
 	int tosend = 0;
 	int frags = targ->g->frags;
 
+        nifp = targ->nmd->nifp;
 	while (!targ->cancel && (n == 0 || sent < n)) {
 
 		if (rate_limit && tosend <= 0) {
@@ -1154,7 +1155,7 @@ receiver_body(void *data)
 {
 	struct targ *targ = (struct targ *) data;
 	struct pollfd pfd = { .fd = targ->fd, .events = POLLIN };
-	struct netmap_if *nifp = targ->nmd->nifp;
+	struct netmap_if *nifp;
 	struct netmap_ring *rxring;
 	int i;
 	uint64_t received = 0;
@@ -1190,6 +1191,8 @@ receiver_body(void *data)
 #endif /* !NO_PCAP */
     } else {
 	int dump = targ->g->options & OPT_DUMP;
+
+        nifp = targ->nmd->nifp;
 	while (!targ->cancel) {
 		/* Once we started to receive packets, wait at most 1 seconds
 		   before quitting. */
@@ -1344,16 +1347,21 @@ start_threads(struct glob_arg *g)
 			nmd.req.nr_flags = NR_REG_ONE_NIC;
 			nmd.req.nr_ringid = i;
 		}
-		/* Only touch one of the rings */
-		nmd.req.nr_ringid |= (g->td_body == receiver_body) ?
-			NETMAP_NO_TX_POLL : NETMAP_NO_RX_POLL;
+		/* Only touch one of the rings (rx is already ok) */
+		if (g->td_body == receiver_body)
+			g->nmd_flags |= NETMAP_NO_TX_POLL;
 
 		/* register interface. Override ifname and ringid etc. */
+		if (g->options & OPT_MONITOR_TX)
+			g->nmd->req.nr_flags |= NR_MONITOR_TX;
+		if (g->options & OPT_MONITOR_RX)
+			g->nmd->req.nr_flags |= NR_MONITOR_RX;
 
-		t->nmd = nm_open(t->g->ifname, g->nmd_flags |
+		t->nmd = nm_open(t->g->ifname, NULL, g->nmd_flags |
 			NM_OPEN_IFNAME | NM_OPEN_NO_MMAP, g->nmd);
 		if (t->nmd == NULL) {
-			D("Unable to open /dev/netmap: %s", strerror(errno));
+			D("Unable to open %s: %s",
+				t->g->ifname, strerror(errno));
 			continue;
 		}
 		t->fd = t->nmd->fd;
@@ -1401,7 +1409,6 @@ main_thread(struct glob_arg *g)
 		delta.tv_usec = (g->report_interval%1000)*1000;
 		select(0, NULL, NULL, NULL, &delta);
 		gettimeofday(&now, NULL);
-		time_second = now.tv_sec;
 		timersub(&now, &toc, &toc);
 		my_count = 0;
 		for (i = 0; i < g->nthreads; i++) {
@@ -1575,7 +1582,7 @@ main(int arc, char **argv)
 	g.virt_header = 0;
 
 	while ( (ch = getopt(arc, argv,
-			"a:f:F:n:i:Il:d:s:D:S:b:c:o:p:T:w:WvR:XC:H:e:")) != -1) {
+			"a:f:F:n:i:Il:d:s:D:S:b:c:o:p:T:w:WvR:XC:H:e:m:")) != -1) {
 		struct sf *fn;
 
 		switch(ch) {
@@ -1709,6 +1716,15 @@ main(int arc, char **argv)
 		case 'e': /* extra bufs */
 			g.extra_bufs = atoi(optarg);
 			break;
+		case 'm':
+			if (strcmp(optarg, "tx") == 0) {
+				g.options |= OPT_MONITOR_TX;
+			} else if (strcmp(optarg, "rx") == 0) {
+				g.options |= OPT_MONITOR_RX;
+			} else {
+				D("unrecognized monitor mode %s", optarg);
+			}
+			break;
 		}
 	}
 
@@ -1797,9 +1813,9 @@ main(int arc, char **argv)
 	 * which in turn may take some time for the PHY to
 	 * reconfigure. We do the open here to have time to reset.
 	 */
-	g.nmd = nm_open(g.ifname, g.nmd_flags, &base_nmd);
+	g.nmd = nm_open(g.ifname, NULL, g.nmd_flags, &base_nmd);
 	if (g.nmd == NULL) {
-		D("Unable to open /dev/netmap: %s", strerror(errno));
+		D("Unable to open %s: %s", g.ifname, strerror(errno));
 		goto out;
 	}
 	g.main_fd = g.nmd->fd;
