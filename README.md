@@ -35,10 +35,16 @@ The vale-ctl command is included in [netmap](http://info.iet.unipi.it/~luigi/net
 Applications or user-level stacks that run on top of the netmap API can be easily ported. To run a user-level network stack or app:
 
 1. Run the app on top of a virtual port that attaches to the switch instance "valem:", represented by "valem:vp0".
+	- You can choose arbitrary name for "vp0"
+	- You don't need any system-wide configuration to create "valem:vp0". When your app registers this name with nm_open(), the virtual port is dynamically created.
 
 2. Create a socket and bind() a 3-tuple.
+	- This process is important so that afterwards MultiStack can confirm this process owns credential to this 3 tuple.
 
-3. Issue an ioctl() with MULTISTACK_BIND as an argument in order to register this 3-tuple with MultiStack.
+3. Issue an ioctl() for a file descripter opened by nm_open() (you can refer to it with nmd->fd) with MULTISTACK_BIND as an argument in order to register this 3-tuple with MultiStack.
+	- Here MultiStack internally checks if the caller process owns credential to register this 3 tuple. Since you have bind()ed this 3 tuple, it will success.
+	
+4. You can now send (raw) packets whose source matches this 3 tuple, and receive (raw) packets whose destination is this 3 tuple on "valem:vp0" using netmap API.
 
 For more details, see multistack/examples/pkt-gen.c (a modified version of netmap/examples/pkt-gen.c that can run on top of MultiStack)
 	
