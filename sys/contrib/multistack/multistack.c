@@ -154,9 +154,9 @@ struct ms_tcphdr {
 };
 
 static inline void
-ip_sprintf(char *buf, struct in_addr *addr)
+ip_sprintf(char *buf, const struct in_addr *addr)
 {
-	uint8_t *p = (uint8_t *)addr;
+	const uint8_t *p = (const uint8_t *)addr;
 	sprintf(buf, "%u.%u.%u.%u", p[0], p[1], p[2], p[3]);
 }
 
@@ -164,12 +164,12 @@ static void
 ms_addr_sprintf(char *buf, const struct sockaddr *sa)
 {
 	if (sa->sa_family == AF_INET)
-		ip_sprintf(buf, &satosin(sa)->sin_addr);
+		ip_sprintf(buf, &((const struct sockaddr_in *)sa)->sin_addr);
 	else if (sa->sa_family == AF_INET6)
-		ip6_sprintf(buf, &satosin6(sa)->sin6_addr);
+		ip6_sprintf(buf, &((const struct sockaddr_in6 *)sa)->sin6_addr);
 }
 static inline void
-eth_sprintf(char *buf, uint8_t *addr)
+eth_sprintf(char *buf, const uint8_t *addr)
 {
 	sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x", addr[0], addr[1],
 		addr[2], addr[3], addr[4], addr[5]);
@@ -179,65 +179,65 @@ static void
 ms_pkt2str(const uint8_t *buf, char *dst)
 {
 	uint16_t et;
-        uint8_t *th;
+        const uint8_t *th;
 	char saddr_str[INET6_ADDRSTRLEN], daddr_str[INET6_ADDRSTRLEN];
 	char smac_str[18], dmac_str[18];
-	struct ether_header *eth = (struct ether_header *)buf;
-	struct ms_tcphdr *tcph;
+	const struct ether_header *eth = (const struct ether_header *)buf;
+	const struct ms_tcphdr *tcph;
 
         et = ntohs(eth->ether_type);
 	eth_sprintf(smac_str, eth->ether_shost);
 	eth_sprintf(dmac_str, eth->ether_dhost);
 
         if (et == ETHERTYPE_IP) {
-                struct ip *iph = (struct ip *)(buf + ETHER_HDR_LEN);
+                const struct ip *iph = (const struct ip *)(buf + ETHER_HDR_LEN);
 
               //  th = (uint8_t *)iph + (iph->ip_hl << 2);
-		th = (uint8_t *)iph;
+		th = (const uint8_t *)iph;
 //		th += (iph->ip_hl << 2);
 		th += 20;
 		ip_sprintf(saddr_str, &iph->ip_src);
 		ip_sprintf(daddr_str, &iph->ip_dst);
 
 		sprintf(dst, "%s %s:%u > %s %s:%u %u len %u",
-		       	smac_str, saddr_str, ntohs(*(uint16_t *)th),
-			dmac_str, daddr_str, ntohs(*( ((uint16_t *)th)+1)),
+		       	smac_str, saddr_str, ntohs(*(const uint16_t *)th),
+			dmac_str, daddr_str, ntohs(*( ((const uint16_t *)th)+1)),
 		       	iph->ip_p, ntohs(iph->ip_len));
 		if (iph->ip_p == IPPROTO_TCP) {
-			tcph = (struct ms_tcphdr *)th;
+			tcph = (const struct ms_tcphdr *)th;
 			sprintf(dst + strlen(dst), " tcp flags 0x%x seq %u ack %u", tcph->th_flags, tcph->th_seq, tcph->th_ack);
 
 		}
 	} else if (et == ETHERTYPE_IPV6) {
-		struct ip6_hdr *ip6 = (struct ip6_hdr *)(buf + ETHER_HDR_LEN);
+		const struct ip6_hdr *ip6 = (const struct ip6_hdr *)(buf + ETHER_HDR_LEN);
 
-		th = (uint8_t *)(ip6+1);
+		th = (const uint8_t *)(ip6+1);
                 ip6_sprintf(saddr_str, &ip6->ip6_src);
                 ip6_sprintf(daddr_str, &ip6->ip6_src);
 		sprintf(dst, "%s %s:%u > %s:%s:%u %u len %u",
-			smac_str, saddr_str, ntohs(*(uint16_t *)th),
-			dmac_str, daddr_str, ntohs(*( ((uint16_t *)th)+1)),
+			smac_str, saddr_str, ntohs(*(const uint16_t *)th),
+			dmac_str, daddr_str, ntohs(*( ((const uint16_t *)th)+1)),
 			ip6->ip6_nxt, ntohs(ip6->ip6_plen));
 		if (ip6->ip6_nxt == IPPROTO_TCP) {
-			tcph = (struct ms_tcphdr *)th;
+			tcph = (const struct ms_tcphdr *)th;
 			sprintf(dst + strlen(dst), "tcp flags 0x%x seq %u ack %u", tcph->th_flags, tcph->th_seq, tcph->th_ack);
 
 		}
         } else if (et == ETHERTYPE_ARP) {
-		struct arphdr *ah = (struct arphdr *)(buf + ETHER_HDR_LEN);
+		const struct arphdr *ah = (const struct arphdr *)(buf + ETHER_HDR_LEN);
 
 		if (ntohs(ah->ar_op) == ARPOP_REQUEST) {
 			ip_sprintf(saddr_str,
-				(struct in_addr *)((char *)(ah+1) + 6));
+				(const struct in_addr *)((const char *)(ah+1) + 6));
 			ip_sprintf(daddr_str,
-				(struct in_addr *)((char *)(ah+1) + 16));
+				(const struct in_addr *)((const char *)(ah+1) + 16));
 			sprintf(dst, "%s %s > %s ARP whohas %s", smac_str,
 				saddr_str, dmac_str, daddr_str);
 		} else if (ntohs(ah->ar_op) == ARPOP_REPLY) {
 			ip_sprintf(saddr_str,
-				(struct in_addr *)((char *)(ah+1) + 6));
+				(const struct in_addr *)((const char *)(ah+1) + 6));
 			ip_sprintf(daddr_str,
-				(struct in_addr *)((char *)(ah+1) + 16));
+				(const struct in_addr *)((const char *)(ah+1) + 16));
 			sprintf(dst, "%s %s > %s ARP reply %s", smac_str,
 				saddr_str, dmac_str, daddr_str);
 		} else
