@@ -6,6 +6,7 @@ TARGET!=	uname -m
 IDENT!=		uname -i
 CFLAGS+= -I$(KSRC)
 CFLAGS+= -I../../../sys/
+CFLAGS+= -I../../
 CFLAGS+= -I$(KSRC)/sys/$(TARGET)/compile/$(IDENT)
 CFLAGS+= $(NMVER)
 
