@@ -185,14 +185,14 @@ ms_pkt2str(const uint8_t *buf, char *dst)
 	const struct ether_header *eth = (const struct ether_header *)buf;
 	const struct ms_tcphdr *tcph;
 
-        et = ntohs(eth->ether_type);
+	et = ntohs(eth->ether_type);
 	eth_sprintf(smac_str, eth->ether_shost);
 	eth_sprintf(dmac_str, eth->ether_dhost);
 
-        if (et == ETHERTYPE_IP) {
-                const struct ip *iph = (const struct ip *)(buf + ETHER_HDR_LEN);
+	if (et == ETHERTYPE_IP) {
+		const struct ip *iph = (const struct ip *)(buf + ETHER_HDR_LEN);
 
-              //  th = (uint8_t *)iph + (iph->ip_hl << 2);
+		//  th = (uint8_t *)iph + (iph->ip_hl << 2);
 		th = (const uint8_t *)iph;
 //		th += (iph->ip_hl << 2);
 		th += 20;
@@ -200,9 +200,9 @@ ms_pkt2str(const uint8_t *buf, char *dst)
 		ip_sprintf(daddr_str, &iph->ip_dst);
 
 		sprintf(dst, "%s %s:%u > %s %s:%u %u len %u",
-		       	smac_str, saddr_str, ntohs(*(const uint16_t *)th),
+			smac_str, saddr_str, ntohs(*(const uint16_t *)th),
 			dmac_str, daddr_str, ntohs(*( ((const uint16_t *)th)+1)),
-		       	iph->ip_p, ntohs(iph->ip_len));
+			iph->ip_p, ntohs(iph->ip_len));
 		if (iph->ip_p == IPPROTO_TCP) {
 			tcph = (const struct ms_tcphdr *)th;
 			sprintf(dst + strlen(dst), " tcp flags 0x%x seq %u ack %u", tcph->th_flags, tcph->th_seq, tcph->th_ack);
@@ -212,8 +212,8 @@ ms_pkt2str(const uint8_t *buf, char *dst)
 		const struct ip6_hdr *ip6 = (const struct ip6_hdr *)(buf + ETHER_HDR_LEN);
 
 		th = (const uint8_t *)(ip6+1);
-                ip6_sprintf(saddr_str, &ip6->ip6_src);
-                ip6_sprintf(daddr_str, &ip6->ip6_src);
+		ip6_sprintf(saddr_str, &ip6->ip6_src);
+		ip6_sprintf(daddr_str, &ip6->ip6_src);
 		sprintf(dst, "%s %s:%u > %s:%s:%u %u len %u",
 			smac_str, saddr_str, ntohs(*(const uint16_t *)th),
 			dmac_str, daddr_str, ntohs(*( ((const uint16_t *)th)+1)),
@@ -223,7 +223,7 @@ ms_pkt2str(const uint8_t *buf, char *dst)
 			sprintf(dst + strlen(dst), "tcp flags 0x%x seq %u ack %u", tcph->th_flags, tcph->th_seq, tcph->th_ack);
 
 		}
-        } else if (et == ETHERTYPE_ARP) {
+	} else if (et == ETHERTYPE_ARP) {
 		const struct arphdr *ah = (const struct arphdr *)(buf + ETHER_HDR_LEN);
 
 		if (ntohs(ah->ar_op) == ARPOP_REQUEST) {
@@ -329,7 +329,7 @@ do {                                                                    \
 static inline uint32_t
 ms_rthash(struct ms_ptrs *ptrs)
 {
-        uint32_t a = 0x9e3779b9, b = 0x9e3779b9, c = 0; // hask key
+	uint32_t a = 0x9e3779b9, b = 0x9e3779b9, c = 0; // hask key
 	uint8_t *p;
 
 	b += *ptrs->proto;
@@ -352,18 +352,18 @@ ms_rthash(struct ms_ptrs *ptrs)
 static inline uint16_t
 ipv4_csum(uint16_t *raw, int len)
 {
-        uint32_t csum;
-        csum = 0;
-        while (len > 0) {
-                csum += *raw;
-                raw++;
-                csum += *raw;
-                raw++;
-                len -= 4;
-        }
-        csum = (csum >> 16) + (csum & 0xffff);
-        csum = (csum >> 16) + (csum & 0xffff);
-        return (uint16_t)csum;
+	uint32_t csum;
+	csum = 0;
+	while (len > 0) {
+		csum += *raw;
+		raw++;
+		csum += *raw;
+		raw++;
+		len -= 4;
+	}
+	csum = (csum >> 16) + (csum & 0xffff);
+	csum = (csum >> 16) + (csum & 0xffff);
+	return (uint16_t)csum;
 }
 #endif /* MULTISTACK_IPV4CSUM */
 
@@ -506,7 +506,7 @@ ms_lookup(struct nm_bdg_fwd *ft, uint8_t *ring_nr,
 
 	mrt = ms_route_pkt(ft->ft_buf, &hint, input);
 	if (mrt == NULL)
-       		/* XXX just for testing. Actually this packet
+		/* XXX just for testing. Actually this packet
 		 * should go to the host stack
 		 */
 		return NM_BDG_NOPORT;
