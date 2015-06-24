@@ -51,6 +51,7 @@
 #include <sys/sockio.h> /* XXX _IOWR. Should we use ioccom.h ? */
 #include <sys/proc.h>
 #include <net/if.h>
+#include <net/if_var.h>
 #include <net/ethernet.h>
 #include <netinet/in.h> /* struct in_addr in ip.h */
 #include <netinet/in_pcb.h> /* struct inpcb */
@@ -74,6 +75,7 @@
 #endif /* SCTP */
 #ifdef INET6
 #include <netinet6/in6_pcb.h>
+#include <netinet6/ip6protosw.h>
 #endif
 extern struct protosw inetsw[];
 
