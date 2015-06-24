@@ -28,7 +28,7 @@
  *  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
  *  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #if defined(__FreeBSD__)
@@ -174,9 +174,8 @@ eth_sprintf(char *buf, uint8_t *addr)
 	sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x", addr[0], addr[1],
 		addr[2], addr[3], addr[4], addr[5]);
 }
-/* XXX non static just to silence compiler */
-void ms_pkt2str(const uint8_t *, char *);
-void
+
+static void
 ms_pkt2str(const uint8_t *buf, char *dst)
 {
 	uint16_t et;
@@ -226,7 +225,7 @@ ms_pkt2str(const uint8_t *buf, char *dst)
 		}
         } else if (et == ETHERTYPE_ARP) {
 		struct arphdr *ah = (struct arphdr *)(buf + ETHER_HDR_LEN);
-	       
+
 		if (ntohs(ah->ar_op) == ARPOP_REQUEST) {
 			ip_sprintf(saddr_str,
 				(struct in_addr *)((char *)(ah+1) + 6));
@@ -398,7 +397,7 @@ ms_route_pkt(uint8_t *buf, uint8_t **hint, int input)
 				       	+ (iph->ip_hl<<2)) + 1;
 		} else {
 			ptrs.addr = (uint32_t *)&iph->ip_src;
-			ptrs.port = (uint16_t *) ((uint8_t *)iph + 
+			ptrs.port = (uint16_t *) ((uint8_t *)iph +
 					(iph->ip_hl<<2));
 		}
 		ptrs.addrlen = 4;
@@ -500,7 +499,7 @@ ms_lookup(struct nm_bdg_fwd *ft, uint8_t *ring_nr,
 		return ms_route_pkt2(ft->ft_buf, &hint);
 	}
 #endif /* MULTITACK_MBOXFILTER */
-       	
+
 	/* XXX treat packets from an unrecognized port as input */
 	ms_pkt2str(ft->ft_buf, tmp);
 	input = ms_global.portinfo[na->bdg_port].flags & MS_F_STACK ? 0 : 1;
@@ -548,7 +547,7 @@ ms_dtor(const struct netmap_vp_adapter *vpna)
 }
 
 #ifdef __FreeBSD__
-int
+static int
 ms_getifname(struct sockaddr *sa, char *ifname)
 {
 	struct ifnet *ifn;
@@ -581,7 +580,7 @@ ms_getifname(struct sockaddr *sa, char *ifname)
 	return retval;
 }
 
-int
+static int
 ms_pcb_clash(struct sockaddr *sa, uint8_t protocol)
 {
 	uint8_t proto;
@@ -795,7 +794,7 @@ init_tables(void)
 #endif /* MULTITACK_MBOXFILTER */
 
 /* we assume a bridge with MS_NAME is already created */
-int
+static int
 ms_init(void)
 {
 	struct nmreq nmr;
@@ -822,7 +821,7 @@ ms_init(void)
 	return 0;
 }
 
-void
+static void
 ms_fini(void)
 {
 	struct nmreq nmr;
