@@ -28,7 +28,7 @@
  *  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
  *  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #if defined(__FreeBSD__)
@@ -51,6 +51,7 @@
 #include <sys/sockio.h> /* XXX _IOWR. Should we use ioccom.h ? */
 #include <sys/proc.h>
 #include <net/if.h>
+#include <net/if_var.h>
 #include <net/ethernet.h>
 #include <netinet/in.h> /* struct in_addr in ip.h */
 #include <netinet/in_pcb.h> /* struct inpcb */
@@ -74,6 +75,7 @@
 #endif /* SCTP */
 #ifdef INET6
 #include <netinet6/in6_pcb.h>
+#include <netinet6/ip6protosw.h>
 #endif
 extern struct protosw inetsw[];
 
@@ -152,9 +154,9 @@ struct ms_tcphdr {
 };
 
 static inline void
-ip_sprintf(char *buf, struct in_addr *addr)
+ip_sprintf(char *buf, const struct in_addr *addr)
 {
-	uint8_t *p = (uint8_t *)addr;
+	const uint8_t *p = (const uint8_t *)addr;
 	sprintf(buf, "%u.%u.%u.%u", p[0], p[1], p[2], p[3]);
 }
 
@@ -162,81 +164,80 @@ static void
 ms_addr_sprintf(char *buf, const struct sockaddr *sa)
 {
 	if (sa->sa_family == AF_INET)
-		ip_sprintf(buf, &satosin(sa)->sin_addr);
+		ip_sprintf(buf, &((const struct sockaddr_in *)sa)->sin_addr);
 	else if (sa->sa_family == AF_INET6)
-		ip6_sprintf(buf, &satosin6(sa)->sin6_addr);
+		ip6_sprintf(buf, &((const struct sockaddr_in6 *)sa)->sin6_addr);
 }
 static inline void
-eth_sprintf(char *buf, uint8_t *addr)
+eth_sprintf(char *buf, const uint8_t *addr)
 {
 	sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x", addr[0], addr[1],
 		addr[2], addr[3], addr[4], addr[5]);
 }
-/* XXX non static just to silence compiler */
-void ms_pkt2str(const uint8_t *, char *);
-void
+
+static void
 ms_pkt2str(const uint8_t *buf, char *dst)
 {
 	uint16_t et;
-        uint8_t *th;
+        const uint8_t *th;
 	char saddr_str[INET6_ADDRSTRLEN], daddr_str[INET6_ADDRSTRLEN];
 	char smac_str[18], dmac_str[18];
-	struct ether_header *eth = (struct ether_header *)buf;
-	struct ms_tcphdr *tcph;
+	const struct ether_header *eth = (const struct ether_header *)buf;
+	const struct ms_tcphdr *tcph;
 
-        et = ntohs(eth->ether_type);
+	et = ntohs(eth->ether_type);
 	eth_sprintf(smac_str, eth->ether_shost);
 	eth_sprintf(dmac_str, eth->ether_dhost);
 
-        if (et == ETHERTYPE_IP) {
-                struct ip *iph = (struct ip *)(buf + ETHER_HDR_LEN);
+	if (et == ETHERTYPE_IP) {
+		const struct ip *iph = (const struct ip *)(buf + ETHER_HDR_LEN);
 
-              //  th = (uint8_t *)iph + (iph->ip_hl << 2);
-		th = (uint8_t *)iph;
+		//  th = (uint8_t *)iph + (iph->ip_hl << 2);
+		th = (const uint8_t *)iph;
 //		th += (iph->ip_hl << 2);
 		th += 20;
 		ip_sprintf(saddr_str, &iph->ip_src);
 		ip_sprintf(daddr_str, &iph->ip_dst);
 
 		sprintf(dst, "%s %s:%u > %s %s:%u %u len %u",
-		       	smac_str, saddr_str, ntohs(*(uint16_t *)th),
-			dmac_str, daddr_str, ntohs(*( ((uint16_t *)th)+1)),
-		       	iph->ip_p, ntohs(iph->ip_len));
+			smac_str, saddr_str, ntohs(*(const uint16_t *)th),
+			dmac_str, daddr_str, ntohs(*( ((const uint16_t *)th)+1)),
+			iph->ip_p, ntohs(iph->ip_len));
 		if (iph->ip_p == IPPROTO_TCP) {
-			tcph = (struct ms_tcphdr *)th;
+			tcph = (const struct ms_tcphdr *)th;
 			sprintf(dst + strlen(dst), " tcp flags 0x%x seq %u ack %u", tcph->th_flags, tcph->th_seq, tcph->th_ack);
 
 		}
 	} else if (et == ETHERTYPE_IPV6) {
-		struct ip6_hdr *ip6 = (struct ip6_hdr *)(buf + ETHER_HDR_LEN);
+		const struct ip6_hdr *ip6 = (const struct ip6_hdr *)(buf + ETHER_HDR_LEN);
 
-		th = (uint8_t *)(ip6+1);
-                ip6_sprintf(saddr_str, &ip6->ip6_src);
-                ip6_sprintf(daddr_str, &ip6->ip6_src);
+		th = (const uint8_t *)(ip6+1);
+		ip6_sprintf(saddr_str, &ip6->ip6_src);
+		ip6_sprintf(daddr_str, &ip6->ip6_src);
 		sprintf(dst, "%s %s:%u > %s:%s:%u %u len %u",
-			smac_str, saddr_str, ntohs(*(uint16_t *)th),
-			dmac_str, daddr_str, ntohs(*( ((uint16_t *)th)+1)),
+			smac_str, saddr_str, ntohs(*(const uint16_t *)th),
+			dmac_str, daddr_str, ntohs(*( ((const uint16_t *)th)+1)),
 			ip6->ip6_nxt, ntohs(ip6->ip6_plen));
 		if (ip6->ip6_nxt == IPPROTO_TCP) {
-			tcph = (struct ms_tcphdr *)th;
+			tcph = (const struct ms_tcphdr *)th;
 			sprintf(dst + strlen(dst), "tcp flags 0x%x seq %u ack %u", tcph->th_flags, tcph->th_seq, tcph->th_ack);
 
 		}
-        } else if (et == ETHERTYPE_ARP) {
-		struct arphdr *ah = (struct arphdr *)(buf + ETHER_HDR_LEN);
-	       
+	} else if (et == ETHERTYPE_ARP) {
+		const struct arphdr *ah = (const struct arphdr *)(buf + ETHER_HDR_LEN);
+
 		if (ntohs(ah->ar_op) == ARPOP_REQUEST) {
 			ip_sprintf(saddr_str,
-				(struct in_addr *)((char *)(ah+1) + 6));
+				(const struct in_addr *)((const char *)(ah+1) + 6));
 			ip_sprintf(daddr_str,
-				(struct in_addr *)((char *)(ah+1) + 16));
+				(const struct in_addr *)((const char *)(ah+1) + 16));
 			sprintf(dst, "%s %s > %s ARP whohas %s", smac_str,
 				saddr_str, dmac_str, daddr_str);
 		} else if (ntohs(ah->ar_op) == ARPOP_REPLY) {
 			ip_sprintf(saddr_str,
-				(struct in_addr *)((char *)(ah+1) + 6));
+				(const struct in_addr *)((const char *)(ah+1) + 6));
 			ip_sprintf(daddr_str,
-				(struct in_addr *)((char *)(ah+1) + 16));
+				(const struct in_addr *)((const char *)(ah+1) + 16));
 			sprintf(dst, "%s %s > %s ARP reply %s", smac_str,
 				saddr_str, dmac_str, daddr_str);
 		} else
@@ -328,7 +329,7 @@ do {                                                                    \
 static inline uint32_t
 ms_rthash(struct ms_ptrs *ptrs)
 {
-        uint32_t a = 0x9e3779b9, b = 0x9e3779b9, c = 0; // hask key
+	uint32_t a = 0x9e3779b9, b = 0x9e3779b9, c = 0; // hask key
 	uint8_t *p;
 
 	b += *ptrs->proto;
@@ -351,18 +352,18 @@ ms_rthash(struct ms_ptrs *ptrs)
 static inline uint16_t
 ipv4_csum(uint16_t *raw, int len)
 {
-        uint32_t csum;
-        csum = 0;
-        while (len > 0) {
-                csum += *raw;
-                raw++;
-                csum += *raw;
-                raw++;
-                len -= 4;
-        }
-        csum = (csum >> 16) + (csum & 0xffff);
-        csum = (csum >> 16) + (csum & 0xffff);
-        return (uint16_t)csum;
+	uint32_t csum;
+	csum = 0;
+	while (len > 0) {
+		csum += *raw;
+		raw++;
+		csum += *raw;
+		raw++;
+		len -= 4;
+	}
+	csum = (csum >> 16) + (csum & 0xffff);
+	csum = (csum >> 16) + (csum & 0xffff);
+	return (uint16_t)csum;
 }
 #endif /* MULTISTACK_IPV4CSUM */
 
@@ -396,7 +397,7 @@ ms_route_pkt(uint8_t *buf, uint8_t **hint, int input)
 				       	+ (iph->ip_hl<<2)) + 1;
 		} else {
 			ptrs.addr = (uint32_t *)&iph->ip_src;
-			ptrs.port = (uint16_t *) ((uint8_t *)iph + 
+			ptrs.port = (uint16_t *) ((uint8_t *)iph +
 					(iph->ip_hl<<2));
 		}
 		ptrs.addrlen = 4;
@@ -498,14 +499,14 @@ ms_lookup(struct nm_bdg_fwd *ft, uint8_t *ring_nr,
 		return ms_route_pkt2(ft->ft_buf, &hint);
 	}
 #endif /* MULTITACK_MBOXFILTER */
-       	
+
 	/* XXX treat packets from an unrecognized port as input */
 	ms_pkt2str(ft->ft_buf, tmp);
 	input = ms_global.portinfo[na->bdg_port].flags & MS_F_STACK ? 0 : 1;
 
 	mrt = ms_route_pkt(ft->ft_buf, &hint, input);
 	if (mrt == NULL)
-       		/* XXX just for testing. Actually this packet
+		/* XXX just for testing. Actually this packet
 		 * should go to the host stack
 		 */
 		return NM_BDG_NOPORT;
@@ -546,7 +547,7 @@ ms_dtor(const struct netmap_vp_adapter *vpna)
 }
 
 #ifdef __FreeBSD__
-int
+static int
 ms_getifname(struct sockaddr *sa, char *ifname)
 {
 	struct ifnet *ifn;
@@ -579,7 +580,7 @@ ms_getifname(struct sockaddr *sa, char *ifname)
 	return retval;
 }
 
-int
+static int
 ms_pcb_clash(struct sockaddr *sa, uint8_t protocol)
 {
 	uint8_t proto;
@@ -793,7 +794,7 @@ init_tables(void)
 #endif /* MULTITACK_MBOXFILTER */
 
 /* we assume a bridge with MS_NAME is already created */
-int
+static int
 ms_init(void)
 {
 	struct nmreq nmr;
@@ -820,7 +821,7 @@ ms_init(void)
 	return 0;
 }
 
-void
+static void
 ms_fini(void)
 {
 	struct nmreq nmr;
