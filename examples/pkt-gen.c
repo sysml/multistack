@@ -1741,7 +1741,7 @@ main(int arc, char **argv)
 		}
 	}
 
-	if (g.ifname == NULL) {
+	if (g.ifname[0] == '\0') {
 		D("missing ifname");
 		usage();
 	}
