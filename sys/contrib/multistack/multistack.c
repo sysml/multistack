@@ -79,6 +79,7 @@
 #endif
 extern struct protosw inetsw[];
 
+#include <contrib/multistack/multistack_kern.h>
 #define MS_RWLOCK_T	struct rwlock
 #define	MS_RWINIT(_lock, _m)	rw_init(_lock, _m)
 #define MS_WLOCK()	rw_wlock(&ms_global.lock)
@@ -99,7 +100,6 @@ LIST_HEAD(ms_routelist, ms_route);
 #define MS_SET_VAR(lval, p)	((lval) = (p))
 
 #define MODULE_GLOBAL(__SYMBOL) V_##__SYMBOL
-
 #elif defined (linux)
 
 #include <bsd_glue.h> /* from netmap-release */
@@ -483,7 +483,7 @@ static u_int
 ms_lookup(struct nm_bdg_fwd *ft, uint8_t *ring_nr, const struct netmap_adapter *na)
 #else
 ms_lookup(struct nm_bdg_fwd *ft, uint8_t *ring_nr,
-	const struct netmap_vp_adapter *na)
+	struct netmap_vp_adapter *na)
 #endif
 {
 	struct ms_route *mrt;
@@ -547,7 +547,7 @@ ms_dtor(const struct netmap_vp_adapter *vpna)
 }
 
 #ifdef __FreeBSD__
-static int
+int
 ms_getifname(struct sockaddr *sa, char *ifname)
 {
 	struct ifnet *ifn;
@@ -580,7 +580,7 @@ ms_getifname(struct sockaddr *sa, char *ifname)
 	return retval;
 }
 
-static int
+int
 ms_pcb_clash(struct sockaddr *sa, uint8_t protocol)
 {
 	uint8_t proto;
@@ -794,7 +794,7 @@ init_tables(void)
 #endif /* MULTITACK_MBOXFILTER */
 
 /* we assume a bridge with MS_NAME is already created */
-static int
+int
 ms_init(void)
 {
 	struct nmreq nmr;
@@ -821,7 +821,7 @@ ms_init(void)
 	return 0;
 }
 
-static void
+void
 ms_fini(void)
 {
 	struct nmreq nmr;
