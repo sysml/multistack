@@ -55,6 +55,12 @@ Assuming that the kernel source code directory is `~/head/` use
 cd multistack/sys/contrib/multistack
 env SYSDIR=~/head/sys make
 ````
+If you also want SCTP support, you need to do
+````
+echo "#define SCTP 1" > opt_sctp.h
+env SYSDIR=~/head/sys make
+````
+
 ## Author
 
 Michio Honda (firstname@netapp.com)
