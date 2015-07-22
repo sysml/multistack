@@ -50,10 +50,10 @@ For more details, see multistack/examples/pkt-gen.c (a modified version of netma
 	
 ## How to Build the Code (FreeBSD)
 
-Assuming that the kernel source code directory is `/home/tuexen/head/sys` use
+Assuming that the kernel source code directory is `~/head/` use
 ````
 cd multistack/sys/contrib/multistack
-env SYSDIR=/home/tuexen/head/sys make
+env SYSDIR=~/head/sys make
 ````
 ## Author
 
