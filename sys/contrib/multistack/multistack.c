@@ -651,7 +651,9 @@ ms_pcb_clash(struct sockaddr *sa, uint8_t protocol)
 				D("%s:%u is not bound", buf, ntohs(sin->sin_port));
 				error = ENOENT;
 			} else {
+				INP_RLOCK(inp);
 				error = cr_canseeinpcb(curthread->td_ucred, inp);
+				INP_RUNLOCK(inp);
 				if (error) {
 					D("%s:%u is not mine", buf, ntohs(sin->sin_port));
 				}
