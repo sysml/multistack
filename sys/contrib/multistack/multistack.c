@@ -653,21 +653,23 @@ ms_pcb_clash(struct sockaddr *sa, uint8_t protocol)
 
 		/* XXX not sure how we should do on find_tcp_pool and vrf_id */
 		sinp = sctp_pcb_findep(sa, 1, 0, SCTP_DEFAULT_VRFID);
-		if (sinp) {
+		if (sinp == NULL) {
+			D("%s:%u is not bound", buf, ntohs(sin->sin_port));
+			error = ENOENT;
+		} else {
 			inp = &sinp->ip_inp.inp;
 			if (inp->inp_socket == NULL) {
 				D("%s:%u is not bound", buf, ntohs(sin->sin_port));
 				error = ENOENT;
 			} else {
+				INP_RLOCK(inp);
 				error = cr_canseeinpcb(curthread->td_ucred, inp);
+				INP_RUNLOCK(inp);
 				if (error) {
 					D("%s:%u is not mine", buf, ntohs(sin->sin_port));
 				}
 			}
 			SCTP_INP_DECR_REF(sinp);
-		} else {
-			D("%s:%u is not bound", buf, ntohs(sin->sin_port));
-			error = ENOENT;
 		}
 	}
 #endif /* SCTP */
