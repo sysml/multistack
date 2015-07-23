@@ -477,6 +477,13 @@ ms_route_pkt2(uint8_t *buf, uint8_t **hint)
 }
 #endif /* MULTITACK_MBOXFILTER */
 
+static inline int
+ms_host_na(const struct netmap_vp_adapter *na)
+{
+	return NA(na->up.ifp)->na_vp != na;
+//	return na->up.pdev ? 0 : 1;
+}
+
 /* Lookup function to be registered */
 static u_int
 #ifdef NETMAP_API_4
@@ -502,14 +509,18 @@ ms_lookup(struct nm_bdg_fwd *ft, uint8_t *ring_nr,
 
 	/* XXX treat packets from an unrecognized port as input */
 	ms_pkt2str(ft->ft_buf, tmp);
+
+	/* we don't validate packets from host stack */
+	if (ms_host_na(na)) {
+//		return na->up.na_vp->bdg_port;
+		return NA(na->up.ifp)->na_vp->bdg_port;
+	}
+
 	input = ms_global.portinfo[na->bdg_port].flags & MS_F_STACK ? 0 : 1;
 
 	mrt = ms_route_pkt(ft->ft_buf, &hint, input);
 	if (mrt == NULL)
-		/* XXX just for testing. Actually this packet
-		 * should go to the host stack
-		 */
-		return NM_BDG_NOPORT;
+		return na->up.na_hostvp->bdg_port; /* going to host stack */
 	/* The least significant byte of the opposite port */
 	*ring_nr = ntohs(*hint) & 0xF;
 	return input ? mrt->bdg_port : mrt->bdg_dstport;
