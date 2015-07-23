@@ -48,6 +48,19 @@ Applications or user-level stacks that run on top of the netmap API can be easil
 
 For more details, see multistack/examples/pkt-gen.c (a modified version of netmap/examples/pkt-gen.c that can run on top of MultiStack)
 	
+## How to Build the Code (FreeBSD)
+
+Assuming that the kernel source code directory is `~/head/` use
+````
+cd multistack/sys/contrib/multistack
+env SYSDIR=~/head/sys make
+````
+If you also want SCTP support, you need to do
+````
+echo "#define SCTP 1" > opt_sctp.h
+env SYSDIR=~/head/sys make
+````
+
 ## Author
 
 Michio Honda (firstname@netapp.com)
