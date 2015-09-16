@@ -477,10 +477,11 @@ ms_route_pkt2(uint8_t *buf, uint8_t **hint)
 }
 #endif /* MULTITACK_MBOXFILTER */
 
+/* ephemeral VALE ports do not have non-NULL ifp */
 static inline int
 ms_host_na(const struct netmap_vp_adapter *na)
 {
-	return NA(na->up.ifp)->na_vp != na;
+	return na->up.ifp && NA(na->up.ifp)->na_vp != na;
 //	return na->up.pdev ? 0 : 1;
 }
 
