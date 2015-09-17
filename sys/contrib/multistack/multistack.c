@@ -168,6 +168,8 @@ ms_addr_sprintf(char *buf, const struct sockaddr *sa)
 	else if (sa->sa_family == AF_INET6)
 		ip6_sprintf(buf, &((const struct sockaddr_in6 *)sa)->sin6_addr);
 }
+
+#if 0
 static inline void
 eth_sprintf(char *buf, const uint8_t *addr)
 {
@@ -175,6 +177,7 @@ eth_sprintf(char *buf, const uint8_t *addr)
 		addr[2], addr[3], addr[4], addr[5]);
 }
 
+/* only for debug */
 static void
 ms_pkt2str(const uint8_t *buf, char *dst)
 {
@@ -246,6 +249,7 @@ ms_pkt2str(const uint8_t *buf, char *dst)
 	} else
 		sprintf(dst, "unknown protocol");
 }
+#endif /* 0 */
 
 /*
  * container of 3-tuple registered by the app/port.
@@ -497,7 +501,7 @@ ms_lookup(struct nm_bdg_fwd *ft, uint8_t *ring_nr,
 	struct ms_route *mrt;
 	uint8_t *hint;
 	int input;
-	char tmp[256];
+//	char tmp[256];
 
 #ifdef MULTITACK_MBOXFILTER
 	if (ms_global.portinfo[na->bdg_port].flags & MS_F_STACK) {
@@ -509,7 +513,7 @@ ms_lookup(struct nm_bdg_fwd *ft, uint8_t *ring_nr,
 #endif /* MULTITACK_MBOXFILTER */
 
 	/* XXX treat packets from an unrecognized port as input */
-	ms_pkt2str(ft->ft_buf, tmp);
+//	ms_pkt2str(ft->ft_buf, tmp);
 
 	/* we don't validate packets from host stack */
 	if (ms_host_na(na)) {
@@ -689,7 +693,7 @@ ms_config(struct nm_ifreq *data)
 	struct ms_ptrs ptrs;
 	MS_ROUTE_LIST	*head;
 	int error = 0, me;
-	char addrbuf[64]; /* just for debug message */
+	char dbgbuf[64]; /* just for debug message */
 
 	if (msr->mr_cmd != MULTISTACK_BIND && msr->mr_cmd != MULTISTACK_UNBIND)
 		return EINVAL;
@@ -729,9 +733,6 @@ ms_config(struct nm_ifreq *data)
 
 	/* Find an existing entry */
 	head = &ms_global.routelist[ms_rthash(&ptrs)];
-	/* Linux terminate the end of the list with head, while
-	 * FreeBSD does so with NULL
-	 */
 	MS_LIST_FOREACH(tmp, head, next) {
 		if (ms_addr_equal(tmp, &ptrs)) {
 			mrt = tmp;
@@ -754,12 +755,11 @@ ms_config(struct nm_ifreq *data)
 			goto out_unlock;
 		}
 		/* check the local address is valid */
-		ms_addr_sprintf(addrbuf, &msr->mr_sa);
 		if (!ms_getifname(&msr->mr_sa, name)) {
-			D("%s doesn't exist", addrbuf);
+			ms_addr_sprintf(dbgbuf, &msr->mr_sa);
+			D("%s doesn't exist", dbgbuf);
 			return EINVAL;
-		} else
-			D("%s is at %s", addrbuf, name);
+		}
 
 		/* Is the interface for this address already in the bridge? */
 		bzero(&nmr, sizeof(nmr));
@@ -786,8 +786,8 @@ ms_config(struct nm_ifreq *data)
 		ms_global.portinfo[me].flags |= MS_F_STACK;
 		++ms_global.num_routes;
 
-		ms_rt2str(mrt, addrbuf);
-		D("%s has been registered", addrbuf);
+		ms_rt2str(mrt, dbgbuf);
+		D("%s has been registered", dbgbuf);
 	}
 out_unlock:
 	MS_WUNLOCK();
